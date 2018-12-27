@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: gitlab-ci-runner
+  name: gitlab-ci-runner
+  namespace: [YOUR_GITLAB_NAMESPACE]
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 2
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: gitlab-ci-runner
+  serviceName: gitlab-ci-runner
+  template:
+    metadata:
+      labels:
+        app: gitlab-ci-runner
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - gitlab-ci-runner
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - command:
+        - /scripts/run.sh
+        env:
+        - name: RUNNER_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        envFrom:
+        - configMapRef:
+            name: gitlab-ci-runner-cm
+        - secretRef:
+            name: gitlab-ci-token
+        image: gitlab/gitlab-runner:v11.6.0
+        imagePullPolicy: IfNotPresent
+        name: gitlab-ci-runner
+        ports:
+        - containerPort: 9100
+          name: http-metrics
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /scripts
+          name: gitlab-ci-runner-scripts
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        supplementalGroups:
+        - 999
+      serviceAccount: gitlab-ci
+      serviceAccountName: gitlab-ci
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: gitlab-ci-runner-scripts
+        projected:
+          defaultMode: 420
+          sources:
+          - configMap:
+              items:
+              - key: run.sh
+                mode: 493
+                path: run.sh
+              name: gitlab-ci-runner-scripts
+  updateStrategy:
+    type: RollingUpdate

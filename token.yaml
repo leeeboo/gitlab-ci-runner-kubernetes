@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gitlab-ci-token
+  namespace: [YOUR_GITLAB_NAMESPACE]
+  labels:
+    app: gitlab-ci-runner
+data:
+  GITLAB_CI_TOKEN: [YOUR_GITLAB_RUNNER_TOKEN]
